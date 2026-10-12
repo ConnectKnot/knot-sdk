@@ -1,0 +1,53 @@
+{
+  "name": "@knot/sdk",
+  "version": "0.1.0",
+  "description": "Official TypeScript SDK for Knot — the Cross-Agent Context & Continuity Bus for AI apps.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test src/*.test.ts",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  },
+  "keywords": [
+    "knot",
+    "mcp",
+    "ai",
+    "context",
+    "mesh",
+    "continuity",
+    "llm",
+    "agent",
+    "chatgpt",
+    "claude",
+    "cursor"
+  ],
+  "author": "Knot Team (https://connectknot.com)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Knot-Repo/knot-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Knot-Repo/knot-sdk/issues"
+  },
+  "homepage": "https://connectknot.com"
+}

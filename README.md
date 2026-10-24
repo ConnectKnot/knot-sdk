@@ -1,8 +1,8 @@
 # @knot-ai/sdk
 
-Official server-side TypeScript SDK for **Knot** — the Cross-Agent Context & Continuity Bus for AI apps.
+Official server-side TypeScript SDK for **Knot** — the Shared Brain for all your AIs.
 
-Knot gives your AI product instant cross-tool shared memory. When a user connects Knot, your AI app can query their existing project decisions, tech stack, constraints, and preferences established in ChatGPT, Claude, and Cursor on **Turn 0** — without cold-start friction or manual prompt copy-pasting.
+Knot gives your AI product instant access to your user's shared brain. When a user connects Knot, your AI app can query their existing project decisions, tech stack, constraints, and preferences established in ChatGPT, Claude, and Cursor on **Turn 0** without cold-start friction or manual prompt copy-pasting.
 
 ---
 

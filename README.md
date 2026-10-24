@@ -1,4 +1,4 @@
-# @knot/sdk
+# @knot-ai/sdk
 
 Official server-side TypeScript SDK for **Knot** — the Cross-Agent Context & Continuity Bus for AI apps.
 
@@ -10,9 +10,9 @@ Knot gives your AI product instant cross-tool shared memory. When a user connect
 
 Install via npm:
 ```bash
-npm install @knot/sdk
+npm install @knot-ai/sdk
 # or
-pnpm add @knot/sdk
+pnpm add @knot-ai/sdk
 ```
 
 Or install directly from GitHub (releases / repository):
@@ -44,7 +44,7 @@ Just like **Plaid** allows fintech products to connect to users' bank accounts w
 ### 3-Line React Drop-In
 
 ```tsx
-import { ContinueWithKnot } from '@knot/sdk/react';
+import { ContinueWithKnot } from '@knot-ai/sdk/react';
 
 export function ConnectMemoryBanner({ userId }: { userId: string }) {
   return (
@@ -85,7 +85,7 @@ The user maintains sovereign control over their knowledge graph before any data 
 ### 1. Initialize the Client
 
 ```typescript
-import { KnotClient } from '@knot/sdk';
+import { KnotClient } from '@knot-ai/sdk';
 
 // Automatically infers environment (production vs sandbox) from your secret prefix:
 const knot = new KnotClient({

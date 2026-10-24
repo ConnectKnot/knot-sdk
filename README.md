@@ -21,7 +21,73 @@ Or install directly from GitHub (releases / repository):
 npm install github:Knot-Repo/knot-sdk
 
 # Direct from GitHub Release tarball
-npm install https://github.com/Knot-Repo/knot-sdk/releases/download/v0.1.0/knot-sdk-0.1.0.tgz
+npm install https://github.com/Knot-Repo/knot-sdk/releases/download/v0.1.1/knot-ai-sdk-0.1.1.tgz
+```
+
+---
+
+## ⚡ One-Shot AI Prompt (Cursor, Windsurf, Claude Code)
+
+Copy and paste this prompt directly into **Cursor Composer (⌘I)**, **Claude Code**, **Windsurf Cascade**, or **Copilot Workspace** to integrate Knot in 60 seconds:
+
+```markdown
+Integrate "Continue with Knot" into this application using @knot-ai/sdk so our users can connect their cross-tool AI memory (tech stack, architectural decisions, and constraints from ChatGPT, Claude, and Cursor) seamlessly:
+
+1. Install the SDK:
+   Run `npm install @knot-ai/sdk`
+
+2. Add Frontend "Continue with Knot" Button:
+   In our authentication, user settings, or header component, add:
+   ```tsx
+   import { ContinueWithKnot } from '@knot-ai/sdk/react';
+
+   <ContinueWithKnot
+     clientId={process.env.NEXT_PUBLIC_KNOT_CLIENT_ID || 'client_demo'}
+     externalUserId={currentUser.id}
+     appName="Our App Name"
+     onSuccess={async ({ connectionId, reach, capabilities }) => {
+       // Save connectionId to our user profile API
+       await fetch('/api/user/knot-connection', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ connectionId, reach, capabilities }),
+       });
+     }}
+   />
+   ```
+
+3. Add Backend Context Injection on Turn-0:
+   When generating AI completions or chatting with our models, initialize the Knot client and query the user's active context:
+   ```ts
+   import { KnotClient } from '@knot-ai/sdk';
+
+   const knot = new KnotClient({
+     secret: process.env.KNOT_SECRET!, // set KNOT_SECRET in .env (knot_prod_* or knot_sandbox_*)
+   });
+
+   // In our LLM route / chat handler:
+   const userConnectionId = currentUser.knotConnectionId;
+   let knotContext = "";
+   if (userConnectionId) {
+     const { current } = await knot.query(userConnectionId, { query: userPrompt, limit: 6 });
+     knotContext = current.map((item) => `[${item.kind.toUpperCase()}] ${item.statement}`).join('\n');
+   }
+
+   // Prepend knotContext to our model's system prompt:
+   const systemPrompt = `You are an AI assistant. User's verified project invariants:\n${knotContext}`;
+   ```
+
+4. Persist Ratified Decisions back to Knot:
+   When the user or AI establishes a new project rule or architectural decision, call:
+   ```ts
+   await knot.contribute(userConnectionId, {
+     kind: 'decision',
+     statement: 'New architectural decision or constraint text',
+     idempotency_key: `decision-${Date.now()}`,
+   });
+   ```
+
+Keep implementation clean, type-safe, and gracefully handle cases where the user has not connected Knot yet.
 ```
 
 ---

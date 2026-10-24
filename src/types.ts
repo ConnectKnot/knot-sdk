@@ -253,4 +253,8 @@ export interface KnotConsentResult {
   envelope: ActiveStateEnvelopeTelemetry;
   selectedProviders: string[];
   selectedProjects: string[];
+  accessToken?: string;
+  refreshToken?: string;
+  grantedScopes?: string[];
 }
+

@@ -23,16 +23,27 @@ export interface ProjectEntityItem {
 export interface ContinueWithKnotProps {
   /**
    * The registered OAuth 2.1 client ID for your B2B app.
+   * In "oauth" mode, if clientId is omitted or a non-UUID placeholder, Dynamic Client Registration (/api/oauth/register) is used automatically.
    */
-  clientId: string;
+  clientId?: string;
   /**
    * The unique identifier of the user in your host system.
    */
-  externalUserId: string;
+  externalUserId?: string;
   /**
    * Knot backend API URL or origin. Defaults to https://production.connectknot.com
    */
   knotUrl?: string;
+  /**
+   * Authorization mode:
+   * - "preview" (default): Opens the inline interactive consent sheet preview modal.
+   * - "oauth": Performs real OAuth 2.1 S256 PKCE authorization against `knotUrl` (/api/oauth/register -> /api/oauth/authorize -> /authorize -> /api/oauth/token) where the user logs into their real Knot account and selects which projects and permissions to share.
+   */
+  mode?: "preview" | "oauth";
+  /**
+   * OAuth 2.1 redirect URI. Defaults to current page URL (`window.location.origin + window.location.pathname`) when in browser.
+   */
+  redirectUri?: string;
   /**
    * App name displayed in the consent sheet. Defaults to "This Application"
    */
@@ -76,6 +87,10 @@ export interface ContinueWithKnotProps {
    */
   onSuccess?: (result: KnotConsentResult) => void;
   /**
+   * Callback fired when an OAuth error occurs.
+   */
+  onError?: (error: Error) => void;
+  /**
    * Callback fired when the user cancels or closes the consent sheet.
    */
   onCancel?: () => void;
@@ -96,6 +111,31 @@ export interface ContinueWithKnotProps {
    */
   logoUrl?: string;
 }
+
+function toBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function generateBrowserPkce(): Promise<{ verifier: string; challenge: string; state: string }> {
+  const verifierBytes = new Uint8Array(32);
+  window.crypto.getRandomValues(verifierBytes);
+  const verifier = toBase64Url(verifierBytes);
+
+  const stateBytes = new Uint8Array(24);
+  window.crypto.getRandomValues(stateBytes);
+  const state = toBase64Url(stateBytes);
+
+  const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  const challenge = toBase64Url(new Uint8Array(digest));
+
+  return { verifier, challenge, state };
+}
+
+const OAUTH_PENDING_STORAGE_KEY = "knot_sdk_oauth_pending_v1";
 
 /**
  * Knot's actual mark component with high-contrast badge container.
@@ -148,7 +188,9 @@ const DEFAULT_PROJECT_SLICES: ProjectEntityItem[] = [
 
 export const ContinueWithKnot: React.FC<ContinueWithKnotProps> = ({
   clientId,
-  externalUserId,
+  knotUrl = "https://production.connectknot.com",
+  mode = "preview",
+  redirectUri,
   appName = "AI Co-pilot",
   userEmail,
   isAuthenticated = false,
@@ -159,6 +201,7 @@ export const ContinueWithKnot: React.FC<ContinueWithKnotProps> = ({
   projects = DEFAULT_PROJECT_SLICES,
   onAuthorize,
   onSuccess,
+  onError,
   onCancel,
   className = "",
   variant = "primary",
@@ -208,6 +251,153 @@ export const ContinueWithKnot: React.FC<ContinueWithKnotProps> = ({
     totalTokens: Math.max(16, (activeDecisionsCount * 6) + (activeThreadsCount * 5) + (reach === "zero_personal" ? 4 : 10)),
   };
 
+  // Real OAuth 2.1 callback exchange on mount when mode="oauth"
+  useEffect(() => {
+    if (mode !== "oauth" || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const returnedState = params.get("state");
+    const oauthError = params.get("error");
+
+    if (!code && !oauthError) return;
+
+    const rawPending = window.localStorage.getItem(OAUTH_PENDING_STORAGE_KEY);
+    if (!rawPending) return;
+
+    let pending: {
+      verifier: string;
+      state: string;
+      clientId: string;
+      redirectUri: string;
+      knotOrigin: string;
+      capabilities: ContextCapability[];
+    } | null = null;
+    try {
+      pending = JSON.parse(rawPending);
+    } catch {
+      window.localStorage.removeItem(OAUTH_PENDING_STORAGE_KEY);
+      return;
+    }
+
+    if (!pending || (returnedState && pending.state !== returnedState)) {
+      return;
+    }
+
+    // Clean OAuth parameters from URL immediately
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete("code");
+    cleanUrl.searchParams.delete("state");
+    cleanUrl.searchParams.delete("error");
+    cleanUrl.searchParams.delete("error_description");
+    window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+    window.localStorage.removeItem(OAUTH_PENDING_STORAGE_KEY);
+
+    if (oauthError) {
+      onError?.(new Error(params.get("error_description") || `OAuth error: ${oauthError}`));
+      return;
+    }
+
+    if (!code) return;
+
+    setIsSubmitting(true);
+    void (async () => {
+      try {
+        const tokenRes = await fetch(`${pending.knotOrigin}/api/oauth/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            grant_type: "authorization_code",
+            client_id: pending.clientId,
+            code,
+            redirect_uri: pending.redirectUri,
+            code_verifier: pending.verifier,
+          }),
+        });
+        const tokenData = await tokenRes.json().catch(() => ({}));
+        if (!tokenRes.ok || !tokenData.access_token) {
+          throw new Error(tokenData.error_description || tokenData.error || "Failed to exchange Knot authorization code");
+        }
+        const grantedScopes: string[] = typeof tokenData.scope === "string"
+          ? tokenData.scope.split(/\s+/).filter(Boolean)
+          : [];
+        onSuccess?.({
+          connectionId: `knot_oauth_${pending.clientId.slice(0, 8)}`,
+          reach: initialReach,
+          capabilities: pending.capabilities,
+          envelope,
+          selectedProviders: [],
+          selectedProjects: [],
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token,
+          grantedScopes,
+        });
+      } catch (err) {
+        onError?.(err instanceof Error ? err : new Error("Failed to complete Knot OAuth exchange"));
+      } finally {
+        setIsSubmitting(false);
+      }
+    })();
+  }, [mode]);
+
+  const startRealOAuthRedirect = async () => {
+    if (typeof window === "undefined") return;
+    setIsSubmitting(true);
+    try {
+      const knotOrigin = knotUrl.replace(/\/api\/?$/, "").replace(/\/+$/, "");
+      const targetRedirectUri = redirectUri || `${window.location.origin}${window.location.pathname}`;
+      const isUuid = clientId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId);
+
+      let resolvedClientId = isUuid ? clientId! : "";
+      if (!resolvedClientId) {
+        const regRes = await fetch(`${knotOrigin}/api/oauth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_name: appName,
+            redirect_uris: [targetRedirectUri],
+          }),
+        });
+        const regData = await regRes.json().catch(() => ({}));
+        if (!regRes.ok || !regData.client_id) {
+          throw new Error(regData.error_description || regData.message || "Could not register OAuth client with Knot");
+        }
+        resolvedClientId = regData.client_id;
+      }
+
+      const { verifier, challenge, state } = await generateBrowserPkce();
+      const requestedCaps = Array.from(capabilities);
+      const scopeList = Array.from(
+        new Set(["knot:connect", "active_state:read", "active_state:contribute", "context:contribute:project", ...requestedCaps])
+      );
+
+      window.localStorage.setItem(
+        OAUTH_PENDING_STORAGE_KEY,
+        JSON.stringify({
+          verifier,
+          state,
+          clientId: resolvedClientId,
+          redirectUri: targetRedirectUri,
+          knotOrigin,
+          capabilities: requestedCaps,
+        })
+      );
+
+      const authUrl = new URL(`${knotOrigin}/api/oauth/authorize`);
+      authUrl.searchParams.set("client_id", resolvedClientId);
+      authUrl.searchParams.set("redirect_uri", targetRedirectUri);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("state", state);
+      authUrl.searchParams.set("code_challenge", challenge);
+      authUrl.searchParams.set("code_challenge_method", "S256");
+      authUrl.searchParams.set("scope", scopeList.join(" "));
+
+      window.location.assign(authUrl.toString());
+    } catch (err) {
+      setIsSubmitting(false);
+      onError?.(err instanceof Error ? err : new Error("Failed to initiate Knot OAuth"));
+    }
+  };
+
   const toggleCapability = (cap: ContextCapability) => {
     setCapabilities((prev) => {
       const next = new Set(prev);
@@ -247,6 +437,10 @@ export const ContinueWithKnot: React.FC<ContinueWithKnotProps> = ({
   };
 
   const handleAuthorize = async () => {
+    if (mode === "oauth" && !onAuthorize) {
+      await startRealOAuthRedirect();
+      return;
+    }
     setIsSubmitting(true);
     try {
       const initialResult: KnotConsentResult = {
@@ -287,19 +481,26 @@ export const ContinueWithKnot: React.FC<ContinueWithKnotProps> = ({
       {/* 3-Line Drop-In Trigger Button */}
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        disabled={isSubmitting}
+        onClick={() => {
+          if (mode === "oauth" && !onAuthorize) {
+            void startRealOAuthRedirect();
+          } else {
+            setIsOpen(true);
+          }
+        }}
         className={`knot-button ${
           variant === "secondary"
             ? "knot-button-secondary"
             : variant === "minimal"
             ? "knot-button-outline"
             : ""
-        } ${className}`}
+        } ${className} disabled:opacity-60`}
         data-testid="continue-with-knot-button"
       >
         {/* Clean Knot logo inverted on dark button without tacky double background */}
         <KnotLogo src={logoUrl} size={16} inDarkButton={variant === "primary"} />
-        <span>{label}</span>
+        <span>{isSubmitting && mode === "oauth" ? "Connecting to Knot..." : label}</span>
       </button>
 
       {/* Knot Native Consent Sheet Modal */}

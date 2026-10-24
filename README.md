@@ -8,17 +8,79 @@ Knot gives your AI product instant cross-tool shared memory. When a user connect
 
 ## Installation
 
+Install via npm:
 ```bash
 npm install @knot/sdk
 # or
 pnpm add @knot/sdk
-# or
-yarn add @knot/sdk
+```
+
+Or install directly from GitHub (releases / repository):
+```bash
+# Direct from GitHub repository
+npm install github:Knot-Repo/knot-sdk
+
+# Direct from GitHub Release tarball
+npm install https://github.com/Knot-Repo/knot-sdk/releases/download/v0.1.0/knot-sdk-0.1.0.tgz
 ```
 
 ---
 
-## Quickstart
+## Frontend Drop-In Consent UI: `<ContinueWithKnot />`
+
+### The Plaid of AI: Instant Turn-0 Shared Context
+
+Just like **Plaid** allows fintech products to connect to users' bank accounts without storing raw login credentials, **Knot** allows AI apps to connect to users' existing cross-tool memory established in ChatGPT, Claude, and Cursor without asking users to copy-paste context or start from scratch on Turn 0.
+
+### Why Support "Connect with Knot"?
+
+1. **No More Copy-Pasting Background**:
+   When users connect Knot, your app immediately knows what they're building, their tech stack, and their rules. No blank prompt boxes or repetitive explanations.
+2. **Users See Exactly What They Share**:
+   Instead of confusing permission lists, users see a clear preview of the project notes being shared. Personal details and secrets stay completely private.
+3. **Two-Way Memory Across All Their AI Tools**:
+   Any architecture decisions or constraints created in your app save back to Knot, synchronizing the user's IDE (Cursor, Windsurf) and assistant (Claude, ChatGPT) automatically.
+
+### 3-Line React Drop-In
+
+```tsx
+import { ContinueWithKnot } from '@knot/sdk/react';
+
+export function ConnectMemoryBanner({ userId }: { userId: string }) {
+  return (
+    <ContinueWithKnot
+      clientId="client_01j7b9k"
+      externalUserId={userId}
+      appName="My AI Studio"
+      onSuccess={({ connectionId, reach, capabilities, envelope }) => {
+        // Save connectionId alongside your user record:
+        console.log('Connected Knot context:', connectionId, reach, capabilities);
+      }}
+    />
+  );
+}
+```
+
+### Visualizing the Value (44-Token Active State Envelope)
+Instead of a boring wall of text, the consent sheet visualizes the exact active state envelope the user is handing to your app:
+- **High-contrast telemetry badge**:
+  > *"Sharing: 4 Architecture Decisions & 2 Active Threads · Shielding: 14 Personal Items & 3 API Keys"*
+- **Live token counter**: Displays the compressed token envelope size (e.g. 44 Tokens) entering the app context.
+
+### One-Click Context Reach & Scope Control
+The user maintains sovereign control over their knowledge graph before any data moves:
+- **Context Reach Selector**:
+  - `Project Slice Only` *(Recommended)*: Repo, tech stack, and project-specific invariants.
+  - `Selected Invariants`: High-level architecture and cryptographic constraints only.
+  - `Zero Personal Context`: Complete isolation from personal background.
+- **Granular Capability Scopes**:
+  - `context:read`: Read authorized project memory slices.
+  - `context:propose`: Write proposals quarantined in a human approval queue.
+  - `context:contribute:project`: Direct canonical contribution to the project bus.
+
+---
+
+## Quickstart (Server-Side)
 
 ### 1. Initialize the Client
 

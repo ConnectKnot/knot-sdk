@@ -1,49 +1,50 @@
+/**
+ * Official TypeScript definitions for @knot/sdk.
+ * Self-contained without workspace dependencies for standalone npm distribution.
+ */
+
+export type ContextCapability =
+  | "context:read"
+  | "context:propose"
+  | "context:contribute:project"
+  | "active_state:read"
+  | "active_state:contribute";
+
 export type ContextItemKind =
   | "fact"
   | "decision"
-  | "constraint"
   | "goal"
+  | "constraint"
   | "project_state"
   | "preference"
   | "person"
   | "relationship";
 
-export type ContextItemStatus = "current" | "superseded" | "conflict";
+export type ContextConfidence = "high" | "medium" | "low" | "unknown";
 
-export interface ContextItem {
-  id: string;
-  kind: ContextItemKind;
-  statement: string;
-  source: string;
-  status: ContextItemStatus;
-  observed_at: string;
-  confidence?: "high" | "medium" | "low" | "unknown";
-  supersedes_id?: string;
-  coexists_with_ids?: string[];
-}
+export type ConnectionStatus = "active" | "revoked" | "expired" | "pending";
 
-export type SandboxContextItem = ContextItem;
+export type KnotEnvironment = "production" | "sandbox" | "development";
 
-export type SandboxSessionCapability =
-  | "context:read"
-  | "context:propose"
-  | "context:contribute:project";
+// --- Sandbox Types ---
 
 export interface SandboxSessionInput {
   external_user_id: string;
   callback_url: string;
   state: string;
   code_challenge: string;
-  capabilities: SandboxSessionCapability[];
+  capabilities: ContextCapability[];
+}
+
+export interface SandboxSessionResultData {
+  session_id: string;
+  consent_url: string;
+  expires_at: string;
 }
 
 export interface SandboxSessionResult {
-  data: {
-    session_id: string;
-    consent_url: string;
-    expires_at: string;
-  };
   request_id: string;
+  data: SandboxSessionResultData;
 }
 
 export interface SandboxExchangeInput {
@@ -58,28 +59,39 @@ export interface SandboxConnection {
   product_id: string;
   external_user_id: string;
   capabilities: string[];
-  status: "active" | "revoked";
-  environment: "sandbox" | "production" | "development";
+  status: ConnectionStatus;
+  environment: KnotEnvironment;
 }
 
 export interface SandboxConnectionResult {
-  data: SandboxConnection;
   request_id: string;
+  data: SandboxConnection;
 }
 
-export interface SandboxQueryInput {
-  query?: string;
-  limit?: number;
+export interface SandboxContextItem {
+  id: string;
+  kind: ContextItemKind | string;
+  statement: string;
+  status: string;
+  source: string;
+  created_at: string;
+  supersedes_id: string | null;
+}
+
+export interface SandboxContextResultData {
+  current: SandboxContextItem[];
+  history: SandboxContextItem[];
+  environment: KnotEnvironment;
 }
 
 export interface SandboxContextResult {
-  data: {
-    current: SandboxContextItem[];
-    history: SandboxContextItem[];
-    personal_context?: Array<{ id: string; statement: string; category?: string }>;
-    environment: "sandbox" | "production" | "development";
-  };
   request_id: string;
+  data: SandboxContextResultData;
+}
+
+export interface SandboxQueryInput {
+  query: string;
+  limit?: number;
 }
 
 export interface SandboxContributionInput {
@@ -90,25 +102,155 @@ export interface SandboxContributionInput {
   coexists_with_ids?: string[];
 }
 
+export interface SandboxContributionResultData {
+  outcome: "accepted" | "needs_clarification" | "rejected";
+  replayed: boolean;
+  item?: SandboxContextItem;
+  current_ids?: string[];
+  message?: string;
+}
+
 export interface SandboxContributionResult {
-  data: {
-    outcome: "accepted" | "superseded" | "conflict";
-    replayed?: boolean;
-    item_id?: string;
-  };
   request_id: string;
+  data: SandboxContributionResultData;
+}
+
+export interface SandboxStatusResultData {
+  status: "disconnected" | "revoked" | "active";
 }
 
 export interface SandboxStatusResult {
-  data: {
-    status: "active" | "revoked" | "disconnected";
-  };
   request_id: string;
+  data: SandboxStatusResultData;
 }
 
-// Development types alias to sandbox definitions
-export type DevelopmentConnectionResult = SandboxConnectionResult;
-export type DevelopmentContextResult = SandboxContextResult;
-export type DevelopmentContributionInput = SandboxContributionInput;
-export type DevelopmentContributionResult = SandboxContributionResult;
-export type DevelopmentQueryInput = SandboxQueryInput;
+// --- Development Types ---
+
+export interface DevelopmentConnection {
+  id: string;
+  product_id: string;
+  external_user_id: string;
+  capabilities: string[];
+  status: ConnectionStatus;
+  environment: "development";
+}
+
+export interface DevelopmentConnectionResult {
+  request_id: string;
+  data: DevelopmentConnection;
+}
+
+export interface DevelopmentContextItem {
+  id: string;
+  entity_id: string;
+  entity_name: string;
+  kind: ContextItemKind | string;
+  statement: string;
+  status: string;
+  confidence: ContextConfidence;
+  supersedes_id: string | null;
+  observed_at: string;
+  created_at: string;
+}
+
+export interface DevelopmentPersonalItem {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+}
+
+export interface DevelopmentContextResultData {
+  current: DevelopmentContextItem[];
+  history: DevelopmentContextItem[];
+  personal_context: DevelopmentPersonalItem[];
+  history_incomplete: boolean;
+  more_available: boolean;
+  interpretation: string;
+  environment: "development";
+}
+
+export interface DevelopmentContextResult {
+  request_id: string;
+  data: DevelopmentContextResultData;
+}
+
+export interface DevelopmentQueryInput {
+  query: string;
+  limit?: number;
+}
+
+export interface DevelopmentContributionInput {
+  entity_id?: string;
+  kind: ContextItemKind;
+  statement: string;
+  idempotency_key: string;
+  supersedes_id?: string;
+  coexists_with_ids?: string[];
+}
+
+export interface DevelopmentContributionResultData {
+  outcome: "accepted" | "needs_clarification" | "rejected";
+  replayed: boolean;
+  proposal_id?: string;
+  context_id?: string;
+  current_ids?: string[];
+  message?: string;
+}
+
+export interface DevelopmentContributionResult {
+  request_id: string;
+  data: DevelopmentContributionResultData;
+}
+
+// --- PKCE Types ---
+
+export interface PkcePair {
+  verifier: string;
+  challenge: string;
+  method: "S256";
+}
+
+// --- Consent & Active State Envelope Types ---
+
+export type ContextReach =
+  | "project_slice_only"
+  | "selected_invariants"
+  | "zero_personal";
+
+export interface ActiveStateEnvelopeTelemetry {
+  sharedDecisionsCount: number;
+  sharedThreadsCount: number;
+  shieldedPersonalItemsCount: number;
+  shieldedApiKeysCount: number;
+  totalTokens: number;
+}
+
+export interface KnotConsentPreferences {
+  reach: ContextReach;
+  capabilities: ContextCapability[];
+}
+
+export interface ConnectedProvider {
+  id: string;
+  name: string;
+  category: "ide" | "assistant" | "agent";
+  enabled: boolean;
+  activeThreadsCount: number;
+}
+
+export interface ProjectSlice {
+  id: string;
+  name: string;
+  enabled: boolean;
+  decisionsCount: number;
+}
+
+export interface KnotConsentResult {
+  connectionId: string;
+  reach: ContextReach;
+  capabilities: ContextCapability[];
+  envelope: ActiveStateEnvelopeTelemetry;
+  selectedProviders: string[];
+  selectedProjects: string[];
+}

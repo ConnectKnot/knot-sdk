@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { KnotClient, KnotDevelopmentClient, KnotError, compileGitHubPullRequest, compileSeedMarkdown, generatePkcePair } from "./index";
+import { KnotClient, KnotDevelopmentClient, KnotError, compileGitHubPullRequest, compileSeedMarkdown, generatePkcePair, registerDynamicClient } from "./index";
 
 const secret = `knot_sandbox_${"x".repeat(43)}`;
 test("development SDK has a distinct audience, rejects other environment keys and verifies state before exchange", async () => {
@@ -191,4 +191,30 @@ test("compileGitHubPullRequest and ingestGitHubPullRequest compile merged PRs in
   assert.equal(results.length, 3);
   assert.equal(payloads.length, 3);
 });
+
+test("registerDynamicClient executes RFC 7591 dynamic OAuth client registration", async () => {
+  let capturedBody: any;
+  const result = await registerDynamicClient({
+    name: "Prototype App",
+    redirectUris: ["http://localhost:3000/api/auth/callback/knot"],
+    baseUrl: "https://example.com/api",
+    fetch: async (url, init) => {
+      assert.equal(String(url), "https://example.com/api/oauth/register");
+      capturedBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({
+        client_id: "dyn-client-1234",
+        client_name: "Prototype App",
+        redirect_uris: ["http://localhost:3000/api/auth/callback/knot"],
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        token_endpoint_auth_method: "none",
+      }), { status: 201 });
+    },
+  });
+
+  assert.equal(result.client_id, "dyn-client-1234");
+  assert.equal(capturedBody.client_name, "Prototype App");
+  assert.deepEqual(capturedBody.redirect_uris, ["http://localhost:3000/api/auth/callback/knot"]);
+});
+
 

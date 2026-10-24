@@ -453,3 +453,51 @@ export class KnotDevelopmentClient extends KnotTransport {
     return this.request(`/connections/${encodeURIComponent(id)}`, "DELETE", undefined, true);
   }
 }
+
+export interface RegisterDynamicClientOptions {
+  /** Name of the application (e.g. 'Customer Support AI'). */
+  name: string;
+  /** Allowed OAuth callback redirect URIs. */
+  redirectUris: string[];
+  /** Explicit API baseUrl. Defaults to https://production.connectknot.com/api if omitted. */
+  baseUrl?: string;
+  fetch?: typeof fetch;
+}
+
+export interface RegisterDynamicClientResult {
+  client_id: string;
+  client_name: string;
+  redirect_uris: string[];
+  grant_types: string[];
+  response_types: string[];
+  token_endpoint_auth_method: string;
+}
+
+/**
+ * Register an OAuth client dynamically via RFC 7591 OAuth Dynamic Client Registration.
+ * Enables zero-auth, instant onboarding for frontend prototypes and local dev.
+ */
+export async function registerDynamicClient(
+  options: RegisterDynamicClientOptions,
+): Promise<RegisterDynamicClientResult> {
+  const baseUrl = options.baseUrl || "https://production.connectknot.com/api";
+  const fetcher = options.fetch || fetch;
+  const res = await fetcher(`${baseUrl.replace(/\/+$/, "")}/oauth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_name: options.name,
+      redirect_uris: options.redirectUris,
+    }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as any;
+    throw new KnotError(
+      res.status,
+      err.error || "registration_failed",
+      err.error_description || "Failed to register dynamic OAuth client",
+    );
+  }
+  return (await res.json()) as RegisterDynamicClientResult;
+}
+

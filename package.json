@@ -65,10 +65,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Knot-Repo/knot-sdk.git"
+    "url": "https://github.com/ConnectKnot/knot-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/Knot-Repo/knot-sdk/issues"
+    "url": "https://github.com/ConnectKnot/knot-sdk/issues"
   },
   "homepage": "https://connectknot.com"
 }

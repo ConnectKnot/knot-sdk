@@ -18,10 +18,10 @@ pnpm add @knot-ai/sdk
 Or install directly from GitHub (releases / repository):
 ```bash
 # Direct from GitHub repository
-npm install github:Knot-Repo/knot-sdk
+npm install github:ConnectKnot/knot-sdk
 
 # Direct from GitHub Release tarball
-npm install https://github.com/Knot-Repo/knot-sdk/releases/download/v0.1.1/knot-ai-sdk-0.1.1.tgz
+npm install https://github.com/ConnectKnot/knot-sdk/releases/download/v0.1.1/knot-ai-sdk-0.1.1.tgz
 ```
 
 ---
